@@ -3,10 +3,15 @@ from sqlalchemy.orm import Session
 
 from app.models.employee import Employee
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
+from app.services.audit_log_service import log_action
 
 
-def create_employee(db: Session, employee: EmployeeCreate) -> Employee:
-    # Check duplicate employee_id
+def create_employee(
+    db: Session,
+    employee: EmployeeCreate,
+    user_id: int,
+) -> Employee:
+
     existing_employee = (
         db.query(Employee)
         .filter(Employee.employee_id == employee.employee_id)
@@ -19,7 +24,6 @@ def create_employee(db: Session, employee: EmployeeCreate) -> Employee:
             detail="Employee ID already exists",
         )
 
-    # Check duplicate email
     existing_email = (
         db.query(Employee)
         .filter(Employee.email == employee.email)
@@ -37,6 +41,14 @@ def create_employee(db: Session, employee: EmployeeCreate) -> Employee:
     db.add(new_employee)
     db.commit()
     db.refresh(new_employee)
+
+    log_action(
+        db=db,
+        user_id=user_id,
+        module="Employee",
+        action="Create",
+        description=f"Created employee: {new_employee.first_name} {new_employee.last_name}",
+    )
 
     return new_employee
 
@@ -65,6 +77,7 @@ def update_employee(
     db: Session,
     employee_id: int,
     employee_data: EmployeeUpdate,
+    user_id: int,
 ):
     employee = get_employee_by_id(db, employee_id)
 
@@ -76,11 +89,31 @@ def update_employee(
     db.commit()
     db.refresh(employee)
 
+    log_action(
+        db=db,
+        user_id=user_id,
+        module="Employee",
+        action="Update",
+        description=f"Updated employee: {employee.name}",
+    )
+
     return employee
 
 
-def delete_employee(db: Session, employee_id: int):
+def delete_employee(
+    db: Session,
+    employee_id: int,
+    user_id: int,
+):
     employee = get_employee_by_id(db, employee_id)
+
+    log_action(
+        db=db,
+        user_id=user_id,
+        module="Employee",
+        action="Delete",
+        description=f"Deleted employee: {employee.name}",
+    )
 
     db.delete(employee)
     db.commit()

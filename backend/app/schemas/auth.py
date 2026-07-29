@@ -8,13 +8,26 @@ from pydantic import BaseModel
 
 
 class Token(BaseModel):
-    """Response payload returned to the client after successful login."""
+    """
+    Response payload returned after successful authentication.
+    """
 
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 
+class RefreshTokenRequest(BaseModel):
+    """
+    Request payload for generating a new access token.
+    """
+
+    refresh_token: str
+
+
 class TokenData(BaseModel):
-    """Decoded JWT payload data used internally to identify the current user."""
+    """
+    Decoded JWT payload data used internally.
+    """
 
     email: str | None = None

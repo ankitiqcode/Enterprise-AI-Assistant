@@ -129,3 +129,60 @@ def decode_access_token(token: str) -> Optional[dict[str, Any]]:
     except JWTError:
         # Covers signature errors, expired tokens, malformed tokens, etc.
         return None
+
+# --------------------------------------------------------------------------
+# JWT Refresh Token utilities
+# --------------------------------------------------------------------------
+
+def create_refresh_token(
+    data: dict[str, Any],
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    """
+    Create a signed JWT refresh token.
+    """
+
+    to_encode = data.copy()
+
+    if expires_delta is not None:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        # Default: 7 days
+        expire = datetime.now(timezone.utc) + timedelta(days=7)
+
+    to_encode.update(
+        {
+            "exp": expire,
+            "iat": datetime.now(timezone.utc),
+            "type": "refresh",
+        }
+    )
+
+    return jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+
+
+def decode_refresh_token(
+    token: str,
+) -> Optional[dict[str, Any]]:
+    """
+    Decode and validate a refresh token.
+    """
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+
+        if payload.get("type") != "refresh":
+            return None
+
+        return payload
+
+    except JWTError:
+        return None

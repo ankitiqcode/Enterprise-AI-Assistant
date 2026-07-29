@@ -1,4 +1,13 @@
-from fastapi import APIRouter, Depends
+"""
+app/routers/dashboard.py
+
+Dashboard API routes.
+"""
+
+from fastapi import (
+    APIRouter,
+    Depends,
+)
 from sqlalchemy.orm import Session
 
 from app.core.permissions import require_roles
@@ -16,9 +25,20 @@ router = APIRouter(
 @router.get(
     "/summary",
     response_model=DashboardSummary,
+    summary="Dashboard Summary",
+    description="Returns overall employee, department, attendance, and leave statistics.",
 )
 def dashboard_summary(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "hr")),
-):
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+        )
+    ),
+) -> DashboardSummary:
+    """
+    Get dashboard summary statistics.
+    """
+
     return get_dashboard_summary(db)

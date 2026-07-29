@@ -16,6 +16,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
 
+    # RBAC
+    role: str = Field(default="employee")
+
 
 class UserLogin(BaseModel):
     """Request payload for authenticating an existing user."""

@@ -26,12 +26,16 @@ if config.config_file_name is not None:
 # Import Base and all models
 from app.db.database import Base
 
+from app.db.database import Base
+
 import app.models.user
 import app.models.employee
 import app.models.department
 import app.models.attendance
 import app.models.leave
-
+import app.models.document
+import app.models.chat_history
+import app.models.audit_log
 # Metadata for autogenerate
 target_metadata = Base.metadata
 

@@ -33,13 +33,23 @@ router = APIRouter(
 def add_department(
     department: DepartmentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+        )
+    ),
 ):
     """
     Create a new department.
-    Only Admin can create departments.
+    Only Admin and HR can create departments.
     """
-    return create_department(db, department)
+
+    return create_department(
+        db=db,
+        department=department,
+        user_id=current_user.id,
+    )
 
 
 @router.get(
@@ -48,11 +58,19 @@ def add_department(
 )
 def list_departments(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "hr", "employee")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+            "manager",
+            "employee",
+        )
+    ),
 ):
     """
     Get all departments.
     """
+
     return get_all_departments(db)
 
 
@@ -63,12 +81,23 @@ def list_departments(
 def get_department(
     department_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "hr", "employee")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+            "manager",
+            "employee",
+        )
+    ),
 ):
     """
     Get department by ID.
     """
-    return get_department_by_id(db, department_id)
+
+    return get_department_by_id(
+        db=db,
+        department_id=department_id,
+    )
 
 
 @router.put(
@@ -79,12 +108,24 @@ def edit_department(
     department_id: int,
     department: DepartmentUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+        )
+    ),
 ):
     """
     Update department.
+    Only Admin and HR can update departments.
     """
-    return update_department(db, department_id, department)
+
+    return update_department(
+        db=db,
+        department_id=department_id,
+        department_data=department,
+        user_id=current_user.id,
+    )
 
 
 @router.delete(
@@ -94,9 +135,19 @@ def edit_department(
 def remove_department(
     department_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+        )
+    ),
 ):
     """
     Delete department.
+    Only Admin can delete departments.
     """
-    return delete_department(db, department_id)
+
+    return delete_department(
+        db=db,
+        department_id=department_id,
+        user_id=current_user.id,
+    )

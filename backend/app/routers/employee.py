@@ -3,7 +3,6 @@ from typing import List
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
 from app.core.permissions import require_roles
 from app.db.database import get_db
 from app.models.user import User
@@ -34,13 +33,23 @@ router = APIRouter(
 def add_employee(
     employee: EmployeeCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "hr")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+        )
+    ),
 ):
     """
     Create a new employee.
     Only Admin and HR can create employees.
     """
-    return create_employee(db, employee)
+
+    return create_employee(
+        db=db,
+        employee=employee,
+        user_id=current_user.id,
+    )
 
 
 @router.get(
@@ -49,12 +58,18 @@ def add_employee(
 )
 def list_employees(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "hr")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+        )
+    ),
 ):
     """
     Get all employees.
     Only Admin and HR can view employee list.
     """
+
     return get_all_employees(db)
 
 
@@ -65,13 +80,22 @@ def list_employees(
 def get_employee(
     employee_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "hr")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+        )
+    ),
 ):
     """
     Get employee by ID.
     Only Admin and HR can access employee details.
     """
-    return get_employee_by_id(db, employee_id)
+
+    return get_employee_by_id(
+        db,
+        employee_id,
+    )
 
 
 @router.put(
@@ -82,13 +106,24 @@ def edit_employee(
     employee_id: int,
     employee: EmployeeUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "hr")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+            "hr",
+        )
+    ),
 ):
     """
     Update employee details.
     Only Admin and HR can update employees.
     """
-    return update_employee(db, employee_id, employee)
+
+    return update_employee(
+        db=db,
+        employee_id=employee_id,
+        employee_data=employee,
+        user_id=current_user.id,
+    )
 
 
 @router.delete(
@@ -98,10 +133,19 @@ def edit_employee(
 def remove_employee(
     employee_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin")),
+    current_user: User = Depends(
+        require_roles(
+            "admin",
+        )
+    ),
 ):
     """
     Delete an employee.
     Only Admin can delete employees.
     """
-    return delete_employee(db, employee_id)
+
+    return delete_employee(
+        db=db,
+        employee_id=employee_id,
+        user_id=current_user.id,
+    )

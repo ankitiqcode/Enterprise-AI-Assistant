@@ -62,9 +62,15 @@ class User(Base):
         nullable=False,
     )
 
-    # ==========================
+    audit_logs = relationship(
+    "AuditLog",
+    back_populates="user",
+    cascade="all, delete-orphan",
+)
+
+    # ==================================================
     # Relationships
-    # ==========================
+    # ==================================================
 
     resumes = relationship(
         "Resume",
@@ -78,10 +84,27 @@ class User(Base):
         cascade="all, delete-orphan",
     )
 
+    conversations = relationship(
+        "Conversation",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    ai_usage_logs = relationship(
+        "AIUsage",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    # ==================================================
+    # Magic Methods
+    # ==================================================
+
     def __repr__(self) -> str:
         return (
-            f"<User(id={self.id}, "
+            f"<User("
+            f"id={self.id}, "
             f"name={self.name!r}, "
             f"email={self.email!r}, "
-            f"role={self.role!r})>"
+            f"role={self.role!r}"
+            f")>"
         )

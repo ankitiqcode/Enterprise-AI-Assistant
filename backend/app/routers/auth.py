@@ -1,27 +1,39 @@
 """
 app/routers/auth.py
 
-Authentication endpoints: user registration and login.
-
-This router is intentionally thin — it only wires HTTP requests to the
-service layer (app.services.auth_service) and declares request/response
-schemas and status codes. No business logic lives here.
+Authentication endpoints: user registration, login,
+refresh token, and current user.
 """
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
+from app.core.security import (
+    create_access_token,
+    decode_refresh_token,
+)
 from app.db.database import get_db
 from app.models.user import User
-from app.schemas.auth import Token
-from app.schemas.user import UserCreate, UserLogin, UserResponse
-from app.services.auth_service import login_user, register_user
+from app.schemas.auth import (
+    RefreshTokenRequest,
+    Token,
+)
+from app.schemas.user import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
+from app.services.auth_service import (
+    get_user_by_email,
+    login_user,
+    register_user,
+)
 
 router = APIRouter(
     prefix="/auth",
-    tags=["Authentication"]
+    tags=["Authentication"],
 )
 
 
@@ -50,7 +62,7 @@ def login(
     db: Session = Depends(get_db),
 ):
     """
-    Authenticate user and return JWT token.
+    Authenticate user and return access and refresh tokens.
     """
 
     credentials = UserLogin(
@@ -58,7 +70,58 @@ def login(
         password=form_data.password,
     )
 
-    return login_user(db, credentials)
+    return login_user(
+        db,
+        credentials,
+    )
+
+
+@router.post(
+    "/refresh",
+    response_model=Token,
+)
+def refresh_token(
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Generate a new access token using a refresh token.
+    """
+
+    payload = decode_refresh_token(
+        request.refresh_token,
+    )
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    user = get_user_by_email(
+        db,
+        payload["sub"],
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    access_token = create_access_token(
+        data={
+            "sub": user.email,
+            "user_id": user.id,
+            "role": user.role,
+        }
+    )
+
+    return Token(
+        access_token=access_token,
+        refresh_token=request.refresh_token,
+        token_type="bearer",
+    )
 
 
 @router.get(
