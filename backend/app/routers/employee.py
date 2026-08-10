@@ -1,3 +1,9 @@
+"""
+app/routers/employees.py
+
+Employee management endpoints.
+"""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, status
@@ -25,6 +31,10 @@ router = APIRouter(
 )
 
 
+# ==========================================================
+# Create Employee
+# ==========================================================
+
 @router.post(
     "",
     response_model=EmployeeResponse,
@@ -37,12 +47,17 @@ def add_employee(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
     """
     Create a new employee.
-    Only Admin and HR can create employees.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
     """
 
     return create_employee(
@@ -51,6 +66,10 @@ def add_employee(
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Get All Employees
+# ==========================================================
 
 @router.get(
     "",
@@ -62,16 +81,27 @@ def list_employees(
         require_roles(
             "admin",
             "hr",
+            "manager",
+            "employee",
         )
     ),
 ):
     """
     Get all employees.
-    Only Admin and HR can view employee list.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
+    - Employee
     """
 
     return get_all_employees(db)
 
+
+# ==========================================================
+# Get Employee By ID
+# ==========================================================
 
 @router.get(
     "/{employee_id}",
@@ -84,12 +114,19 @@ def get_employee(
         require_roles(
             "admin",
             "hr",
+            "manager",
+            "employee",
         )
     ),
 ):
     """
-    Get employee by ID.
-    Only Admin and HR can access employee details.
+    Get employee details.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
+    - Employee
     """
 
     return get_employee_by_id(
@@ -97,6 +134,10 @@ def get_employee(
         employee_id,
     )
 
+
+# ==========================================================
+# Update Employee
+# ==========================================================
 
 @router.put(
     "/{employee_id}",
@@ -110,12 +151,17 @@ def edit_employee(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
     """
     Update employee details.
-    Only Admin and HR can update employees.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
     """
 
     return update_employee(
@@ -126,6 +172,10 @@ def edit_employee(
     )
 
 
+# ==========================================================
+# Delete Employee
+# ==========================================================
+
 @router.delete(
     "/{employee_id}",
     status_code=status.HTTP_200_OK,
@@ -134,13 +184,12 @@ def remove_employee(
     employee_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_roles(
-            "admin",
-        )
+        require_roles("admin")
     ),
 ):
     """
     Delete an employee.
+
     Only Admin can delete employees.
     """
 

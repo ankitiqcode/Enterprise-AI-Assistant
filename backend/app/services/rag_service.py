@@ -16,9 +16,17 @@ from app.services.gemini_service import generate_rag_response
 from app.services.vector_store_service import vector_store
 
 
+# ==========================================================
+# Configuration
+# ==========================================================
+
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
+
+# ==========================================================
+# Chunk Text
+# ==========================================================
 
 def chunk_text(
     text: str,
@@ -29,22 +37,46 @@ def chunk_text(
     Split text into overlapping chunks.
     """
 
-    if not text.strip():
+    if not text or not text.strip():
         return []
+
+    if chunk_size <= 0:
+        raise ValueError(
+            "chunk_size must be greater than 0."
+        )
+
+    if overlap < 0:
+        raise ValueError(
+            "overlap cannot be negative."
+        )
+
+    if overlap >= chunk_size:
+        raise ValueError(
+            "overlap must be smaller than chunk_size."
+        )
 
     chunks: list[str] = []
 
     start = 0
+    step = chunk_size - overlap
 
     while start < len(text):
+
         end = start + chunk_size
 
-        chunks.append(text[start:end])
+        chunk = text[start:end].strip()
 
-        start += chunk_size - overlap
+        if chunk:
+            chunks.append(chunk)
+
+        start += step
 
     return chunks
 
+
+# ==========================================================
+# Index Document
+# ==========================================================
 
 def index_document(
     *,
@@ -53,7 +85,10 @@ def index_document(
     source: str,
 ) -> int:
     """
-    Chunk a document and store it in ChromaDB.
+    Chunk a document and store its embeddings in ChromaDB.
+
+    Returns:
+        Number of indexed chunks.
     """
 
     chunks = chunk_text(text)
@@ -61,12 +96,29 @@ def index_document(
     if not chunks:
         return 0
 
-    embeddings = generate_embeddings(chunks)
+    # ------------------------------------------------------
+    # Generate embeddings
+    # ------------------------------------------------------
+
+    embeddings = generate_embeddings(
+        chunks
+    )
+
+    if not embeddings:
+        return 0
+
+    # ------------------------------------------------------
+    # Generate unique vector IDs
+    # ------------------------------------------------------
 
     ids = [
         str(uuid.uuid4())
         for _ in chunks
     ]
+
+    # ------------------------------------------------------
+    # Metadata
+    # ------------------------------------------------------
 
     metadatas = [
         {
@@ -76,6 +128,10 @@ def index_document(
         }
         for index in range(len(chunks))
     ]
+
+    # ------------------------------------------------------
+    # Store vectors
+    # ------------------------------------------------------
 
     vector_store.add_documents(
         ids=ids,
@@ -87,6 +143,10 @@ def index_document(
     return len(chunks)
 
 
+# ==========================================================
+# Retrieve Context
+# ==========================================================
+
 def retrieve_context(
     query: str,
     top_k: int = 5,
@@ -95,7 +155,23 @@ def retrieve_context(
     Retrieve relevant document chunks.
     """
 
-    query_embedding = generate_embedding(query)
+    if not query or not query.strip():
+        return []
+
+    if top_k <= 0:
+        return []
+
+    # ------------------------------------------------------
+    # Generate query embedding
+    # ------------------------------------------------------
+
+    query_embedding = generate_embedding(
+        query
+    )
+
+    # ------------------------------------------------------
+    # Search vector store
+    # ------------------------------------------------------
 
     results = vector_store.search(
         query_embedding=query_embedding,
@@ -110,8 +186,20 @@ def retrieve_context(
     if not documents:
         return []
 
-    return documents[0]
+    # ChromaDB commonly returns:
+    # [
+    #     ["chunk 1", "chunk 2", ...]
+    # ]
 
+    if isinstance(documents[0], list):
+        return documents[0]
+
+    return documents
+
+
+# ==========================================================
+# Delete Document Vectors
+# ==========================================================
 
 def delete_document_vectors(
     document_id: int,
@@ -125,14 +213,26 @@ def delete_document_vectors(
     )
 
 
+# ==========================================================
+# Ask Question
+# ==========================================================
+
 def ask_question(
     question: str,
 ) -> str:
     """
-    Retrieve relevant context and generate an AI answer.
+    Retrieve relevant document context and
+    generate an AI answer.
     """
 
-    context = retrieve_context(question)
+    if not question or not question.strip():
+        return (
+            "Please provide a question."
+        )
+
+    context = retrieve_context(
+        question
+    )
 
     if not context:
         return (

@@ -1,4 +1,12 @@
+"""
+app/services/department_service.py
+
+Service layer for department management:
+create, read, update, and delete departments.
+"""
+
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.department import Department
@@ -9,6 +17,10 @@ from app.schemas.department import (
 from app.services.audit_log_service import log_action
 
 
+# ==========================================================
+# Create Department
+# ==========================================================
+
 def create_department(
     db: Session,
     department: DepartmentCreate,
@@ -16,13 +28,21 @@ def create_department(
 ) -> Department:
     """
     Create a new department.
+
+    Checks:
+    - Department code must be unique.
+    - Department name must be unique.
     """
 
-    # Check duplicate department code
+    # ------------------------------------------------------
+    # Check Duplicate Department Code
+    # ------------------------------------------------------
+
     existing_code = (
         db.query(Department)
         .filter(
-            Department.department_code == department.department_code
+            Department.department_code
+            == department.department_code
         )
         .first()
     )
@@ -33,11 +53,15 @@ def create_department(
             detail="Department code already exists",
         )
 
-    # Check duplicate department name
+    # ------------------------------------------------------
+    # Check Duplicate Department Name
+    # ------------------------------------------------------
+
     existing_name = (
         db.query(Department)
         .filter(
-            Department.department_name == department.department_name
+            Department.department_name
+            == department.department_name
         )
         .first()
     )
@@ -48,41 +72,85 @@ def create_department(
             detail="Department name already exists",
         )
 
-    new_department = Department(**department.model_dump())
+    # ------------------------------------------------------
+    # Create Department
+    # ------------------------------------------------------
 
-    db.add(new_department)
-    db.commit()
-    db.refresh(new_department)
+    new_department = Department(
+        **department.model_dump()
+    )
+
+    try:
+        db.add(new_department)
+        db.commit()
+        db.refresh(new_department)
+
+    except SQLAlchemyError as error:
+        db.rollback()
+
+        print(
+            "Department creation failed:",
+            error,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create department",
+        )
+
+    # ------------------------------------------------------
+    # Audit Log
+    # ------------------------------------------------------
 
     log_action(
         db=db,
         user_id=user_id,
         module="Department",
         action="Create",
-        description=f"Created department: {new_department.department_name}",
+        description=(
+            f"Created department: "
+            f"{new_department.department_name}"
+        ),
     )
 
     return new_department
 
 
-def get_all_departments(db: Session):
+# ==========================================================
+# Get All Departments
+# ==========================================================
+
+def get_all_departments(
+    db: Session,
+):
     """
     Return all departments.
     """
-    return db.query(Department).all()
 
+    return (
+        db.query(Department)
+        .order_by(Department.id.desc())
+        .all()
+    )
+
+
+# ==========================================================
+# Get Department By ID
+# ==========================================================
 
 def get_department_by_id(
     db: Session,
     department_id: int,
 ) -> Department:
     """
-    Return department by ID.
+    Return a department by database ID.
     """
 
     department = (
         db.query(Department)
-        .filter(Department.id == department_id)
+        .filter(
+            Department.id == department_id
+        )
         .first()
     )
 
@@ -95,6 +163,10 @@ def get_department_by_id(
     return department
 
 
+# ==========================================================
+# Update Department
+# ==========================================================
+
 def update_department(
     db: Session,
     department_id: int,
@@ -102,7 +174,10 @@ def update_department(
     user_id: int,
 ) -> Department:
     """
-    Update department.
+    Update an existing department.
+
+    Checks duplicate department code/name
+    when either value is changed.
     """
 
     department = get_department_by_id(
@@ -110,16 +185,25 @@ def update_department(
         department_id,
     )
 
+    # ------------------------------------------------------
+    # Get Only Submitted Fields
+    # ------------------------------------------------------
+
     update_data = department_data.model_dump(
         exclude_unset=True,
     )
 
-    # Check duplicate department code
+    # ------------------------------------------------------
+    # Check Duplicate Department Code
+    # ------------------------------------------------------
+
     if "department_code" in update_data:
+
         existing_code = (
             db.query(Department)
             .filter(
-                Department.department_code == update_data["department_code"],
+                Department.department_code
+                == update_data["department_code"],
                 Department.id != department_id,
             )
             .first()
@@ -131,12 +215,17 @@ def update_department(
                 detail="Department code already exists",
             )
 
-    # Check duplicate department name
+    # ------------------------------------------------------
+    # Check Duplicate Department Name
+    # ------------------------------------------------------
+
     if "department_name" in update_data:
+
         existing_name = (
             db.query(Department)
             .filter(
-                Department.department_name == update_data["department_name"],
+                Department.department_name
+                == update_data["department_name"],
                 Department.id != department_id,
             )
             .first()
@@ -148,6 +237,10 @@ def update_department(
                 detail="Department name already exists",
             )
 
+    # ------------------------------------------------------
+    # Update Department Fields
+    # ------------------------------------------------------
+
     for key, value in update_data.items():
         setattr(
             department,
@@ -155,19 +248,48 @@ def update_department(
             value,
         )
 
-    db.commit()
-    db.refresh(department)
+    # ------------------------------------------------------
+    # Save Changes
+    # ------------------------------------------------------
+
+    try:
+        db.commit()
+        db.refresh(department)
+
+    except SQLAlchemyError as error:
+        db.rollback()
+
+        print(
+            "Department update failed:",
+            error,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update department",
+        )
+
+    # ------------------------------------------------------
+    # Audit Log
+    # ------------------------------------------------------
 
     log_action(
         db=db,
         user_id=user_id,
         module="Department",
         action="Update",
-        description=f"Updated department: {department.department_name}",
+        description=(
+            f"Updated department: "
+            f"{department.department_name}"
+        ),
     )
 
     return department
 
+
+# ==========================================================
+# Delete Department
+# ==========================================================
 
 def delete_department(
     db: Session,
@@ -175,7 +297,7 @@ def delete_department(
     user_id: int,
 ):
     """
-    Delete department.
+    Delete a department.
     """
 
     department = get_department_by_id(
@@ -183,16 +305,49 @@ def delete_department(
         department_id,
     )
 
+    # ------------------------------------------------------
+    # Save Name Before Delete
+    # ------------------------------------------------------
+
+    department_name = (
+        department.department_name
+    )
+
+    # ------------------------------------------------------
+    # Delete Department
+    # ------------------------------------------------------
+
+    try:
+        db.delete(department)
+        db.commit()
+
+    except SQLAlchemyError as error:
+        db.rollback()
+
+        print(
+            "Department deletion failed:",
+            error,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete department",
+        )
+
+    # ------------------------------------------------------
+    # Audit Log
+    # ------------------------------------------------------
+
     log_action(
         db=db,
         user_id=user_id,
         module="Department",
         action="Delete",
-        description=f"Deleted department: {department.department_name}",
+        description=(
+            f"Deleted department: "
+            f"{department_name}"
+        ),
     )
-
-    db.delete(department)
-    db.commit()
 
     return {
         "message": "Department deleted successfully"

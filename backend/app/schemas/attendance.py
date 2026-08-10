@@ -15,12 +15,25 @@ from __future__ import annotations
 from datetime import date, datetime, time
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 from app.models.attendance import AttendanceStatus
 
 
+# ==========================================================
+# Base Schema
+# ==========================================================
+
 class AttendanceBase(BaseModel):
+    """
+    Common fields used by Attendance APIs.
+    """
+
     employee_id: int = Field(
         ...,
         gt=0,
@@ -51,6 +64,10 @@ class AttendanceBase(BaseModel):
         description="Attendance status",
     )
 
+    # ------------------------------------------------------
+    # Validate Check-out
+    # ------------------------------------------------------
+
     @field_validator("check_out")
     @classmethod
     def validate_check_out(
@@ -61,6 +78,7 @@ class AttendanceBase(BaseModel):
         """
         Ensure check-out is later than check-in.
         """
+
         check_in = info.data.get("check_in")
 
         if (
@@ -69,31 +87,70 @@ class AttendanceBase(BaseModel):
             and value <= check_in
         ):
             raise ValueError(
-                "Check-out time must be later than check-in time."
+                "Check-out time must be later "
+                "than check-in time."
             )
 
         return value
 
 
+# ==========================================================
+# Create Attendance
+# ==========================================================
+
 class AttendanceCreate(AttendanceBase):
-    """Schema for creating attendance."""
+    """
+    Schema for creating attendance.
+    """
+
     pass
 
 
+# ==========================================================
+# Update Attendance
+# ==========================================================
+
 class AttendanceUpdate(BaseModel):
+    """
+    Schema for updating attendance.
+
+    All fields are optional so partial updates
+    are supported.
+    """
+
+    employee_id: Optional[int] = Field(
+        default=None,
+        gt=0,
+        examples=[1],
+        description="Employee ID",
+    )
+
+    attendance_date: Optional[date] = Field(
+        default=None,
+        examples=["2026-07-23"],
+        description="Attendance date",
+    )
+
     check_in: Optional[time] = Field(
         default=None,
         examples=["09:15:00"],
+        description="Check-in time",
     )
 
     check_out: Optional[time] = Field(
         default=None,
         examples=["18:10:00"],
+        description="Check-out time",
     )
 
     status: Optional[AttendanceStatus] = Field(
         default=None,
+        description="Attendance status",
     )
+
+    # ------------------------------------------------------
+    # Validate Check-out
+    # ------------------------------------------------------
 
     @field_validator("check_out")
     @classmethod
@@ -102,6 +159,11 @@ class AttendanceUpdate(BaseModel):
         value: Optional[time],
         info,
     ) -> Optional[time]:
+        """
+        Validate check-out when check-in is
+        included in the same update request.
+        """
+
         check_in = info.data.get("check_in")
 
         if (
@@ -110,15 +172,26 @@ class AttendanceUpdate(BaseModel):
             and value <= check_in
         ):
             raise ValueError(
-                "Check-out time must be later than check-in time."
+                "Check-out time must be later "
+                "than check-in time."
             )
 
         return value
 
 
+# ==========================================================
+# Attendance Response
+# ==========================================================
+
 class AttendanceResponse(AttendanceBase):
+    """
+    Response schema for attendance.
+    """
+
     id: int
+
     created_at: datetime
+
     updated_at: datetime
 
     model_config = ConfigDict(
@@ -126,8 +199,17 @@ class AttendanceResponse(AttendanceBase):
     )
 
 
+# ==========================================================
+# Attendance List Response
+# ==========================================================
+
 class AttendanceListResponse(BaseModel):
+    """
+    Optional wrapped response for attendance lists.
+    """
+
     total: int
+
     data: list[AttendanceResponse]
 
     model_config = ConfigDict(

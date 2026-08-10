@@ -3,17 +3,19 @@ app/core/config.py
 
 Centralized application configuration for the Enterprise AI Assistant backend.
 
-Uses Pydantic v2 (via `pydantic-settings`) to load and validate configuration
+Uses Pydantic v2 via pydantic-settings to load and validate configuration
 from environment variables / the .env file at project root.
-
-Importing `settings` anywhere in the codebase gives access to a single,
-validated, type-safe configuration object.
 """
+
+from __future__ import annotations
 
 from functools import lru_cache
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+)
 
 
 class Settings(BaseSettings):
@@ -21,9 +23,9 @@ class Settings(BaseSettings):
     Application settings loaded from environment variables.
     """
 
-    # ======================================================================
+    # ==========================================================
     # Application
-    # ======================================================================
+    # ==========================================================
 
     APP_NAME: str = Field(
         default="Enterprise AI Assistant",
@@ -35,9 +37,9 @@ class Settings(BaseSettings):
         description="Application environment.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # Server
-    # ======================================================================
+    # ==========================================================
 
     HOST: str = Field(
         default="0.0.0.0",
@@ -49,18 +51,18 @@ class Settings(BaseSettings):
         description="Server port.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # Database
-    # ======================================================================
+    # ==========================================================
 
     DATABASE_URL: str = Field(
         ...,
         description="PostgreSQL database connection URL.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # JWT Authentication
-    # ======================================================================
+    # ==========================================================
 
     SECRET_KEY: str = Field(
         ...,
@@ -77,18 +79,18 @@ class Settings(BaseSettings):
         description="JWT access token expiry in minutes.",
     )
 
-    # ======================================================================
-    # AI Configuration
-    # ======================================================================
+    # ==========================================================
+    # AI
+    # ==========================================================
 
     AI_PROVIDER: str = Field(
         default="gemini",
         description="AI provider.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # Google Gemini
-    # ======================================================================
+    # ==========================================================
 
     GEMINI_API_KEY: str = Field(
         ...,
@@ -100,18 +102,18 @@ class Settings(BaseSettings):
         description="Gemini model.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # Embedding Model
-    # ======================================================================
+    # ==========================================================
 
     EMBEDDING_MODEL: str = Field(
         default="all-MiniLM-L6-v2",
         description="Sentence Transformer embedding model.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # ChromaDB
-    # ======================================================================
+    # ==========================================================
 
     CHROMA_DB_PATH: str = Field(
         default="app/chroma_db",
@@ -120,12 +122,12 @@ class Settings(BaseSettings):
 
     CHROMA_COLLECTION_NAME: str = Field(
         default="enterprise_ai_documents",
-        description="Default ChromaDB collection.",
+        description="ChromaDB collection name.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # File Upload
-    # ======================================================================
+    # ==========================================================
 
     UPLOAD_DIR: str = Field(
         default="app/uploads",
@@ -141,13 +143,14 @@ class Settings(BaseSettings):
         default=[
             ".pdf",
             ".docx",
+            ".txt",
         ],
         description="Allowed upload file extensions.",
     )
 
-    # ======================================================================
-    # RAG Configuration
-    # ======================================================================
+    # ==========================================================
+    # RAG
+    # ==========================================================
 
     CHUNK_SIZE: int = Field(
         default=1000,
@@ -164,9 +167,9 @@ class Settings(BaseSettings):
         description="Number of retrieved chunks.",
     )
 
-    # ======================================================================
+    # ==========================================================
     # Pydantic Settings
-    # ======================================================================
+    # ==========================================================
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -176,11 +179,16 @@ class Settings(BaseSettings):
     )
 
 
+# ==========================================================
+# Cached Settings
+# ==========================================================
+
 @lru_cache
 def get_settings() -> Settings:
     """
     Return cached settings instance.
     """
+
     return Settings()
 
 

@@ -1,7 +1,7 @@
 """
 app/routers/attendance.py
 
-Attendance API Routes.
+Attendance API routes with role-based access control.
 """
 
 from typing import List
@@ -37,6 +37,10 @@ router = APIRouter(
 )
 
 
+# ==========================================================
+# Create / Mark Attendance
+# ==========================================================
+
 @router.post(
     "",
     response_model=AttendanceResponse,
@@ -52,15 +56,29 @@ def mark_attendance(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
+    """
+    Mark attendance.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
+    """
+
     return create_attendance(
         db=db,
         attendance=attendance,
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Get All Attendance
+# ==========================================================
 
 @router.get(
     "",
@@ -74,11 +92,25 @@ def list_attendance(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
+    """
+    Get all attendance records.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
+    """
+
     return get_all_attendance(db)
 
+
+# ==========================================================
+# Get Attendance By ID
+# ==========================================================
 
 @router.get(
     "/{attendance_id}",
@@ -96,14 +128,28 @@ def attendance_detail(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
+    """
+    Get a single attendance record.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
+    """
+
     return get_attendance_by_id(
         db=db,
         attendance_id=attendance_id,
     )
 
+
+# ==========================================================
+# Get Employee Attendance
+# ==========================================================
 
 @router.get(
     "/employee/{employee_id}",
@@ -114,6 +160,7 @@ def employee_attendance(
     employee_id: int = Path(
         ...,
         gt=0,
+        description="Employee ID",
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(
@@ -121,15 +168,27 @@ def employee_attendance(
             "admin",
             "hr",
             "manager",
-            "employee",
         )
     ),
 ):
+    """
+    Get attendance records for a specific employee.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
+    """
+
     return get_attendance_by_employee(
         db=db,
         employee_id=employee_id,
     )
 
+
+# ==========================================================
+# Update Attendance
+# ==========================================================
 
 @router.put(
     "/{attendance_id}",
@@ -140,6 +199,7 @@ def edit_attendance(
     attendance_id: int = Path(
         ...,
         gt=0,
+        description="Attendance ID",
     ),
     attendance: AttendanceUpdate = ...,
     db: Session = Depends(get_db),
@@ -147,9 +207,19 @@ def edit_attendance(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
+    """
+    Update attendance.
+
+    Allowed roles:
+    - Admin
+    - HR
+    - Manager
+    """
+
     return update_attendance(
         db=db,
         attendance_id=attendance_id,
@@ -157,6 +227,10 @@ def edit_attendance(
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Delete Attendance
+# ==========================================================
 
 @router.delete(
     "/{attendance_id}",
@@ -167,14 +241,19 @@ def remove_attendance(
     attendance_id: int = Path(
         ...,
         gt=0,
+        description="Attendance ID",
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_roles(
-            "admin",
-        )
+        require_roles("admin")
     ),
 ):
+    """
+    Delete attendance.
+
+    Only Admin can delete attendance.
+    """
+
     return delete_attendance(
         db=db,
         attendance_id=attendance_id,

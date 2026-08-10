@@ -39,6 +39,10 @@ router = APIRouter(
 )
 
 
+# ==========================================================
+# Apply Leave
+# ==========================================================
+
 @router.post(
     "",
     response_model=LeaveResponse,
@@ -60,12 +64,17 @@ def create_leave(
     """
     Apply for leave.
     """
+
     return apply_leave(
         db=db,
         leave=leave,
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Get All Leave Requests
+# ==========================================================
 
 @router.get(
     "",
@@ -78,14 +87,21 @@ def list_leaves(
         require_roles(
             "admin",
             "hr",
+            "manager",
+            "employee",
         )
     ),
 ):
     """
-    View all leave requests.
+    View leave requests.
     """
+
     return get_all_leaves(db)
 
+
+# ==========================================================
+# Get Leave By ID
+# ==========================================================
 
 @router.get(
     "/{leave_id}",
@@ -107,11 +123,16 @@ def get_leave(
     """
     Get leave details by ID.
     """
+
     return get_leave_by_id(
         db=db,
         leave_id=leave_id,
     )
 
+
+# ==========================================================
+# Get Employee Leave History
+# ==========================================================
 
 @router.get(
     "/employee/{employee_id}",
@@ -133,11 +154,16 @@ def employee_leave_history(
     """
     Get leave history of an employee.
     """
+
     return get_leaves_by_employee(
         db=db,
         employee_id=employee_id,
     )
 
+
+# ==========================================================
+# Update Leave
+# ==========================================================
 
 @router.put(
     "/{leave_id}",
@@ -157,7 +183,10 @@ def edit_leave(
 ):
     """
     Update leave request.
+
+    Only Admin and HR can update leave requests.
     """
+
     return update_leave(
         db=db,
         leave_id=leave_id,
@@ -165,6 +194,10 @@ def edit_leave(
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Approve Leave
+# ==========================================================
 
 @router.patch(
     "/{leave_id}/approve",
@@ -183,13 +216,20 @@ def approve_leave_request(
 ):
     """
     Approve a leave request.
+
+    Only Admin and HR can approve leave.
     """
+
     return approve_leave(
         db=db,
         leave_id=leave_id,
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Reject Leave
+# ==========================================================
 
 @router.patch(
     "/{leave_id}/reject",
@@ -208,13 +248,20 @@ def reject_leave_request(
 ):
     """
     Reject a leave request.
+
+    Only Admin and HR can reject leave.
     """
+
     return reject_leave(
         db=db,
         leave_id=leave_id,
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Delete Leave
+# ==========================================================
 
 @router.delete(
     "/{leave_id}",
@@ -232,8 +279,10 @@ def remove_leave(
 ):
     """
     Delete a leave request.
+
     Only Admin can delete leave records.
     """
+
     return delete_leave(
         db=db,
         leave_id=leave_id,

@@ -1,3 +1,9 @@
+"""
+app/routers/departments.py
+
+Department management endpoints with role-based access control.
+"""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, status
@@ -25,6 +31,10 @@ router = APIRouter(
 )
 
 
+# ==========================================================
+# Create Department
+# ==========================================================
+
 @router.post(
     "",
     response_model=DepartmentResponse,
@@ -37,12 +47,17 @@ def add_department(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
     """
     Create a new department.
-    Only Admin and HR can create departments.
+
+    Allowed:
+    - Admin
+    - HR
+    - Manager
     """
 
     return create_department(
@@ -51,6 +66,10 @@ def add_department(
         user_id=current_user.id,
     )
 
+
+# ==========================================================
+# Get All Departments
+# ==========================================================
 
 @router.get(
     "",
@@ -69,10 +88,16 @@ def list_departments(
 ):
     """
     Get all departments.
+
+    All authenticated roles can view departments.
     """
 
     return get_all_departments(db)
 
+
+# ==========================================================
+# Get Department By ID
+# ==========================================================
 
 @router.get(
     "/{department_id}",
@@ -91,7 +116,9 @@ def get_department(
     ),
 ):
     """
-    Get department by ID.
+    Get department details.
+
+    All authenticated roles can view department details.
     """
 
     return get_department_by_id(
@@ -99,6 +126,10 @@ def get_department(
         department_id=department_id,
     )
 
+
+# ==========================================================
+# Update Department
+# ==========================================================
 
 @router.put(
     "/{department_id}",
@@ -112,12 +143,17 @@ def edit_department(
         require_roles(
             "admin",
             "hr",
+            "manager",
         )
     ),
 ):
     """
     Update department.
-    Only Admin and HR can update departments.
+
+    Allowed:
+    - Admin
+    - HR
+    - Manager
     """
 
     return update_department(
@@ -128,6 +164,10 @@ def edit_department(
     )
 
 
+# ==========================================================
+# Delete Department
+# ==========================================================
+
 @router.delete(
     "/{department_id}",
     status_code=status.HTTP_200_OK,
@@ -136,13 +176,12 @@ def remove_department(
     department_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_roles(
-            "admin",
-        )
+        require_roles("admin")
     ),
 ):
     """
     Delete department.
+
     Only Admin can delete departments.
     """
 

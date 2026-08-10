@@ -1,10 +1,9 @@
 """
 app/services/document_service.py
 
-Enterprise Document Management Service
+Enterprise Document Management Service.
 
-Responsibilities
-----------------
+Responsibilities:
 - Validate uploaded files
 - Store files securely
 - Prevent duplicate uploads
@@ -21,7 +20,8 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -35,6 +35,10 @@ from app.utils.docx_reader import extract_docx_text
 from app.utils.pdf_reader import extract_pdf_text
 
 
+# ==========================================================
+# Supported Files
+# ==========================================================
+
 SUPPORTED_EXTENSIONS = {
     ".pdf",
     ".docx",
@@ -42,7 +46,13 @@ SUPPORTED_EXTENSIONS = {
 }
 
 
-UPLOAD_DIRECTORY = Path(settings.UPLOAD_DIR)
+# ==========================================================
+# Upload Directory
+# ==========================================================
+
+UPLOAD_DIRECTORY = Path(
+    settings.UPLOAD_DIR
+)
 
 UPLOAD_DIRECTORY.mkdir(
     parents=True,
@@ -50,11 +60,15 @@ UPLOAD_DIRECTORY.mkdir(
 )
 
 
+# ==========================================================
+# Calculate File Hash
+# ==========================================================
+
 def _calculate_file_hash(
     file_path: str,
 ) -> str:
     """
-    Generate SHA256 hash.
+    Generate SHA256 hash for a file.
     """
 
     sha256 = hashlib.sha256()
@@ -69,6 +83,10 @@ def _calculate_file_hash(
 
     return sha256.hexdigest()
 
+
+# ==========================================================
+# Validate Extension
+# ==========================================================
 
 def _validate_extension(
     filename: str,
@@ -85,7 +103,7 @@ def _validate_extension(
 
     if extension not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 "Only PDF, DOCX and TXT files are supported."
             ),
@@ -94,9 +112,13 @@ def _validate_extension(
     return extension
 
 
+# ==========================================================
+# Validate File Size
+# ==========================================================
+
 def _validate_file_size(
     file_size: int,
-):
+) -> None:
     """
     Validate uploaded file size.
     """
@@ -109,13 +131,17 @@ def _validate_file_size(
 
     if file_size > max_size:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Maximum allowed size is "
                 f"{settings.MAX_UPLOAD_SIZE_MB} MB."
             ),
         )
 
+
+# ==========================================================
+# Extract Text
+# ==========================================================
 
 def _extract_text(
     file_path: str,
@@ -141,6 +167,11 @@ def _extract_text(
 
     return ""
 
+
+# ==========================================================
+# Upload Document
+# ==========================================================
+
 def upload_document(
     db: Session,
     *,
@@ -155,16 +186,24 @@ def upload_document(
     """
 
     extension = _validate_extension(
-        filename,
+        filename
     )
 
     _validate_file_size(
-        file_size,
+        file_size
     )
 
+    # ------------------------------------------------------
+    # Calculate Hash
+    # ------------------------------------------------------
+
     file_hash = _calculate_file_hash(
-        file_path,
+        file_path
     )
+
+    # ------------------------------------------------------
+    # Duplicate Check
+    # ------------------------------------------------------
 
     existing_document = (
         db.query(Document)
@@ -176,11 +215,15 @@ def upload_document(
 
     if existing_document:
         raise HTTPException(
-            status_code=409,
+            status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "This document has already been uploaded."
             ),
         )
+
+    # ------------------------------------------------------
+    # Generate Safe Unique Filename
+    # ------------------------------------------------------
 
     unique_filename = (
         f"{uuid.uuid4().hex}{extension}"
@@ -191,63 +234,119 @@ def upload_document(
         / unique_filename
     )
 
-    shutil.move(
-        file_path,
-        destination,
-    )
+    try:
 
-    document = Document(
-        uploaded_by=uploaded_by,
-        filename=unique_filename,
-        original_filename=filename,
-        file_path=str(destination),
-        file_hash=file_hash,
-        mime_type=mime_type,
-        file_size=file_size,
-        is_indexed=False,
-    )
+        # --------------------------------------------------
+        # Move Uploaded File
+        # --------------------------------------------------
 
-    db.add(document)
-    db.commit()
-    db.refresh(document)
-
-    text = _extract_text(
-        str(destination),
-        extension,
-    )
-
-    if text.strip():
-
-        index_document(
-            document_id=document.id,
-            text=text,
-            source=document.original_filename,
+        shutil.move(
+            file_path,
+            destination,
         )
 
-        document.is_indexed = True
+        # --------------------------------------------------
+        # Create Database Record
+        # --------------------------------------------------
 
+        document = Document(
+            uploaded_by=uploaded_by,
+            filename=unique_filename,
+            original_filename=filename,
+            file_path=str(destination),
+            file_hash=file_hash,
+            mime_type=mime_type,
+            file_size=file_size,
+            is_indexed=False,
+        )
+
+        db.add(document)
         db.commit()
         db.refresh(document)
 
-    # ---------------- Audit Log ----------------
+        # --------------------------------------------------
+        # Extract Text
+        # --------------------------------------------------
 
-    log_action(
-        db=db,
-        user_id=uploaded_by,
-        module="Document",
-        action="Upload",
-        description=(
-            f"Uploaded document: "
-            f"{document.original_filename}"
-        ),
-    )
+        text = _extract_text(
+            str(destination),
+            extension,
+        )
 
-    return document
+        # --------------------------------------------------
+        # Index Document
+        # --------------------------------------------------
 
+        if text.strip():
+
+            index_document(
+                document_id=document.id,
+                text=text,
+                source=document.original_filename,
+            )
+
+            document.is_indexed = True
+
+            db.commit()
+            db.refresh(document)
+
+        # --------------------------------------------------
+        # Audit Log
+        # --------------------------------------------------
+
+        log_action(
+            db=db,
+            user_id=uploaded_by,
+            module="Document",
+            action="Upload",
+            description=(
+                f"Uploaded document: "
+                f"{document.original_filename}"
+            ),
+        )
+
+        return document
+
+    except HTTPException:
+        db.rollback()
+
+        if destination.exists():
+            destination.unlink()
+
+        raise
+
+    except SQLAlchemyError:
+        db.rollback()
+
+        if destination.exists():
+            destination.unlink()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save document.",
+        )
+
+    except Exception as exc:
+        db.rollback()
+
+        if destination.exists():
+            destination.unlink()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "Failed to process and index document."
+            ),
+        ) from exc
+
+
+# ==========================================================
+# Get All Documents
+# ==========================================================
 
 def get_documents(
     db: Session,
-):
+) -> list[Document]:
     """
     Return all uploaded documents.
     """
@@ -261,10 +360,14 @@ def get_documents(
     )
 
 
+# ==========================================================
+# Get Document By ID
+# ==========================================================
+
 def get_document_by_id(
     db: Session,
     document_id: int,
-):
+) -> Document:
     """
     Retrieve document by ID.
     """
@@ -277,26 +380,49 @@ def get_document_by_id(
         .first()
     )
 
-    if not document:
+    if document is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
         )
 
     return document
 
+
+# ==========================================================
+# Update Document
+# ==========================================================
+
 def update_document(
     db: Session,
     *,
     document: Document,
-    is_indexed: bool,
+    original_filename: str,
     user_id: int,
 ) -> Document:
     """
     Update document metadata.
     """
 
-    document.is_indexed = is_indexed
+    original_filename = (
+        original_filename.strip()
+    )
+
+    if not original_filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename cannot be empty.",
+        )
+
+    if len(original_filename) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename cannot exceed 255 characters.",
+        )
+
+    document.original_filename = (
+        original_filename
+    )
 
     db.commit()
     db.refresh(document)
@@ -315,6 +441,10 @@ def update_document(
     return document
 
 
+# ==========================================================
+# Reindex Document
+# ==========================================================
+
 def reindex_document(
     db: Session,
     *,
@@ -331,44 +461,86 @@ def reindex_document(
         .lower()
     )
 
-    text = _extract_text(
-        document.file_path,
-        extension,
-    )
-
-    delete_document_vectors(
-        document.id,
-    )
-
-    if text.strip():
-
-        index_document(
-            document_id=document.id,
-            text=text,
-            source=document.original_filename,
+    if not Path(
+        document.file_path
+    ).exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document file not found on disk.",
         )
 
-        document.is_indexed = True
+    try:
 
-    else:
-        document.is_indexed = False
+        # --------------------------------------------------
+        # Extract Text
+        # --------------------------------------------------
 
-    db.commit()
-    db.refresh(document)
+        text = _extract_text(
+            document.file_path,
+            extension,
+        )
 
-    log_action(
-        db=db,
-        user_id=user_id,
-        module="Document",
-        action="Reindex",
-        description=(
-            f"Re-indexed document: "
-            f"{document.original_filename}"
-        ),
-    )
+        # --------------------------------------------------
+        # Delete Existing Vectors
+        # --------------------------------------------------
 
-    return document
+        delete_document_vectors(
+            document.id
+        )
 
+        # --------------------------------------------------
+        # Create New Vectors
+        # --------------------------------------------------
+
+        if text.strip():
+
+            index_document(
+                document_id=document.id,
+                text=text,
+                source=document.original_filename,
+            )
+
+            document.is_indexed = True
+
+        else:
+            document.is_indexed = False
+
+        db.commit()
+        db.refresh(document)
+
+        # --------------------------------------------------
+        # Audit Log
+        # --------------------------------------------------
+
+        log_action(
+            db=db,
+            user_id=user_id,
+            module="Document",
+            action="Reindex",
+            description=(
+                f"Re-indexed document: "
+                f"{document.original_filename}"
+            ),
+        )
+
+        return document
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to re-index document.",
+        ) from exc
+
+
+# ==========================================================
+# Delete Document
+# ==========================================================
 
 def delete_document(
     db: Session,
@@ -378,32 +550,70 @@ def delete_document(
 ) -> None:
     """
     Delete document from:
-    - Database
-    - File System
     - ChromaDB
+    - File System
+    - Database
     """
 
-    delete_document_vectors(
-        document.id,
-    )
+    try:
 
-    file_path = Path(
-        document.file_path
-    )
+        # --------------------------------------------------
+        # Delete Vectors
+        # --------------------------------------------------
 
-    if file_path.exists():
-        file_path.unlink()
+        delete_document_vectors(
+            document.id
+        )
 
-    log_action(
-        db=db,
-        user_id=user_id,
-        module="Document",
-        action="Delete",
-        description=(
-            f"Deleted document: "
-            f"{document.original_filename}"
-        ),
-    )
+        # --------------------------------------------------
+        # Delete Physical File
+        # --------------------------------------------------
 
-    db.delete(document)
-    db.commit()
+        file_path = Path(
+            document.file_path
+        )
+
+        if file_path.exists():
+            file_path.unlink()
+
+        # --------------------------------------------------
+        # Audit Log
+        # --------------------------------------------------
+
+        log_action(
+            db=db,
+            user_id=user_id,
+            module="Document",
+            action="Delete",
+            description=(
+                f"Deleted document: "
+                f"{document.original_filename}"
+            ),
+        )
+
+        # --------------------------------------------------
+        # Delete Database Record
+        # --------------------------------------------------
+
+        db.delete(document)
+        db.commit()
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except SQLAlchemyError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document.",
+        )
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document.",
+        ) from exc

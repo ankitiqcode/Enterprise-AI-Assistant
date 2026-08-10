@@ -30,6 +30,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
 
+# ==========================================================
+# Attendance Status
+# ==========================================================
+
 class AttendanceStatus(str, enum.Enum):
     PRESENT = "Present"
     ABSENT = "Absent"
@@ -38,8 +42,16 @@ class AttendanceStatus(str, enum.Enum):
     WFH = "WFH"
 
 
+# ==========================================================
+# Attendance Model
+# ==========================================================
+
 class Attendance(Base):
     __tablename__ = "attendance"
+
+    # ======================================================
+    # Constraints
+    # ======================================================
 
     __table_args__ = (
         UniqueConstraint(
@@ -49,11 +61,19 @@ class Attendance(Base):
         ),
     )
 
+    # ======================================================
+    # Primary Key
+    # ======================================================
+
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         index=True,
     )
+
+    # ======================================================
+    # Employee
+    # ======================================================
 
     employee_id: Mapped[int] = mapped_column(
         ForeignKey(
@@ -64,27 +84,44 @@ class Attendance(Base):
         index=True,
     )
 
+    # ======================================================
+    # Attendance Date
+    # ======================================================
+
     attendance_date: Mapped[date] = mapped_column(
         Date,
         nullable=False,
         index=True,
     )
 
+    # ======================================================
+    # Check In
+    # ======================================================
+
     check_in: Mapped[time | None] = mapped_column(
         Time,
         nullable=True,
     )
+
+    # ======================================================
+    # Check Out
+    # ======================================================
 
     check_out: Mapped[time | None] = mapped_column(
         Time,
         nullable=True,
     )
 
+    # ======================================================
+    # Attendance Status
+    # ======================================================
+
     status: Mapped[AttendanceStatus] = mapped_column(
         Enum(
             AttendanceStatus,
             values_callable=lambda enum_cls: [
-                item.value for item in enum_cls
+                item.value
+                for item in enum_cls
             ],
             name="attendance_status",
         ),
@@ -92,11 +129,19 @@ class Attendance(Base):
         default=AttendanceStatus.PRESENT,
     )
 
+    # ======================================================
+    # Created At
+    # ======================================================
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
+
+    # ======================================================
+    # Updated At
+    # ======================================================
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -105,10 +150,18 @@ class Attendance(Base):
         nullable=False,
     )
 
+    # ======================================================
+    # Relationship
+    # ======================================================
+
     employee = relationship(
         "Employee",
         back_populates="attendance_records",
     )
+
+    # ======================================================
+    # Representation
+    # ======================================================
 
     def __repr__(self) -> str:
         return (

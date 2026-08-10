@@ -32,11 +32,19 @@ class Document(Base):
 
     __tablename__ = "documents"
 
+    # ======================================================
+    # Primary Key
+    # ======================================================
+
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         index=True,
     )
+
+    # ======================================================
+    # Uploaded By
+    # ======================================================
 
     uploaded_by: Mapped[int] = mapped_column(
         ForeignKey(
@@ -46,6 +54,10 @@ class Document(Base):
         nullable=False,
         index=True,
     )
+
+    # ======================================================
+    # File Information
+    # ======================================================
 
     filename: Mapped[str] = mapped_column(
         String(255),
@@ -80,33 +92,45 @@ class Document(Base):
         nullable=False,
     )
 
+    # ======================================================
+    # Indexing
+    # ======================================================
+
     is_indexed: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
         nullable=False,
     )
 
-    from datetime import datetime
+    # ======================================================
+    # Timestamps
+    # ======================================================
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
         server_default=func.now(),
         nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
         server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
+
+    # ======================================================
+    # Relationship
+    # ======================================================
 
     user = relationship(
         "User",
         back_populates="documents",
     )
+
+    # ======================================================
+    # Representation
+    # ======================================================
 
     def __repr__(self) -> str:
         return (

@@ -16,6 +16,10 @@ from google.genai.errors import ClientError
 from app.core.config import settings
 
 
+# ==========================================================
+# Gemini Client
+# ==========================================================
+
 @lru_cache(maxsize=1)
 def get_gemini_client() -> genai.Client:
     """
@@ -27,44 +31,83 @@ def get_gemini_client() -> genai.Client:
             "GEMINI_API_KEY is missing in .env"
         )
 
-    print(f"Gemini Key: {settings.GEMINI_API_KEY[:10]}********")
-
     return genai.Client(
         api_key=settings.GEMINI_API_KEY,
     )
 
 
+# ==========================================================
+# Generate RAG Response
+# ==========================================================
+
 def generate_rag_response(
     *,
     question: str,
-    context: str,
+    context: list[str] | str,
 ) -> str:
     """
     Generate an answer grounded in retrieved context.
     """
 
-    client = get_gemini_client()
+    if not question or not question.strip():
+        return "Please provide a question."
+
+    # ------------------------------------------------------
+    # Normalize context
+    # ------------------------------------------------------
+
+    if isinstance(context, list):
+        context_text = "\n\n---\n\n".join(
+            str(item)
+            for item in context
+            if item
+        )
+    else:
+        context_text = str(context).strip()
+
+    if not context_text:
+        return (
+            "I couldn't find that information "
+            "in the uploaded documents."
+        )
+
+    # ------------------------------------------------------
+    # Prompt
+    # ------------------------------------------------------
 
     prompt = f"""
 You are an Enterprise HR AI Assistant.
 
 Answer ONLY using the provided context.
 
+Do not use outside knowledge.
+
 If the answer is not present in the context,
 respond exactly with:
 
 "I couldn't find that information in the uploaded documents."
 
---------------------
-Context:
-{context}
---------------------
+---
 
-Question:
+CONTEXT:
+{context_text}
+
+---
+
+QUESTION:
 {question}
+
+---
+
+ANSWER:
 """
 
+    # ------------------------------------------------------
+    # Gemini Request
+    # ------------------------------------------------------
+
     try:
+        client = get_gemini_client()
 
         response = client.models.generate_content(
             model=settings.GEMINI_MODEL,
@@ -80,18 +123,32 @@ Question:
 
         return "No response generated."
 
-    except ClientError as e:
-        print("Gemini Client Error:", e)
+    # ------------------------------------------------------
+    # Gemini API Error
+    # ------------------------------------------------------
+
+    except ClientError as exc:
+        print(
+            "Gemini Client Error:",
+            exc,
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=f"Gemini API Error: {e}",
-        )
+            detail="Gemini API request failed.",
+        ) from exc
 
-    except Exception as e:
-        print("Unexpected Gemini Error:", e)
+    # ------------------------------------------------------
+    # Unexpected Error
+    # ------------------------------------------------------
+
+    except Exception as exc:
+        print(
+            "Unexpected Gemini Error:",
+            exc,
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(e),
-        )
+            detail="Failed to generate AI response.",
+        ) from exc

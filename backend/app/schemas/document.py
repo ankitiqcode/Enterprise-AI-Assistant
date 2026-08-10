@@ -11,6 +11,10 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# ==========================================================
+# Document Response
+# ==========================================================
+
 class DocumentResponse(BaseModel):
     """
     Document response schema.
@@ -32,10 +36,16 @@ class DocumentResponse(BaseModel):
 
     created_at: datetime
 
+    updated_at: datetime
+
     model_config = ConfigDict(
         from_attributes=True,
     )
 
+
+# ==========================================================
+# Upload Response
+# ==========================================================
 
 class UploadResponse(BaseModel):
     """
@@ -55,6 +65,10 @@ class UploadResponse(BaseModel):
     )
 
 
+# ==========================================================
+# Document List Response
+# ==========================================================
+
 class DocumentListResponse(BaseModel):
     """
     Response for listing documents.
@@ -68,6 +82,10 @@ class DocumentListResponse(BaseModel):
         from_attributes=True,
     )
 
+
+# ==========================================================
+# Document Update
+# ==========================================================
 
 class DocumentUpdate(BaseModel):
     """
@@ -83,6 +101,10 @@ class DocumentUpdate(BaseModel):
         ],
     )
 
+
+# ==========================================================
+# Delete Response
+# ==========================================================
 
 class DeleteDocumentResponse(BaseModel):
     """
