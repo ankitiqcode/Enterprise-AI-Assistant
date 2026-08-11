@@ -1,5 +1,5 @@
 from app.ai.gemini import client
-from app.rag.embeddings import embedding_model
+from app.rag.embeddings import get_embedding
 from app.rag.prompts import CHAT_PROMPT
 from app.rag.vector_store import collection
 
@@ -8,10 +8,16 @@ def ask_question(
     question: str,
     user_id: int,
 ):
+    # ======================================================
     # Create embedding for user question
-    query_embedding = embedding_model.encode(question).tolist()
+    # ======================================================
 
+    query_embedding = get_embedding(question)
+
+    # ======================================================
     # Search only documents uploaded by current user
+    # ======================================================
+
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=5,
@@ -21,18 +27,30 @@ def ask_question(
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
 
+    # ======================================================
     # No matching documents
+    # ======================================================
+
     if not documents:
         return {
-            "answer": "I couldn't find this information in the uploaded documents.",
+            "answer": (
+                "I couldn't find this information "
+                "in the uploaded documents."
+            ),
             "context_chunks": 0,
             "sources": [],
         }
 
+    # ======================================================
     # Build context
+    # ======================================================
+
     context = "\n\n".join(documents)
 
-    # ---------------- DEBUG ----------------
+    # ======================================================
+    # Debug
+    # ======================================================
+
     print("\n" + "=" * 80)
     print("QUESTION:")
     print(question)
@@ -44,9 +62,11 @@ def ask_question(
     print(context)
 
     print("=" * 80 + "\n")
-    # ---------------------------------------
 
+    # ======================================================
     # Create Gemini prompt
+    # ======================================================
+
     prompt = CHAT_PROMPT.format(
         context=context,
         question=question,
@@ -57,12 +77,19 @@ def ask_question(
         contents=prompt,
     )
 
-    answer = getattr(response, "text", "").strip()
+    answer = getattr(
+        response,
+        "text",
+        "",
+    ).strip()
 
     if not answer:
         answer = "No response generated."
 
+    # ======================================================
     # Collect unique sources
+    # ======================================================
+
     sources = []
     seen = set()
 
@@ -77,7 +104,10 @@ def ask_question(
         if document_id is None or filename is None:
             continue
 
-        key = (document_id, filename)
+        key = (
+            document_id,
+            filename,
+        )
 
         if key not in seen:
             seen.add(key)
@@ -88,6 +118,10 @@ def ask_question(
                     "filename": filename,
                 }
             )
+
+    # ======================================================
+    # Response
+    # ======================================================
 
     return {
         "answer": answer,

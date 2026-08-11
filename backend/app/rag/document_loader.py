@@ -2,13 +2,21 @@ from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.rag.embeddings import embedding_model
+from app.rag.embeddings import get_embeddings
 from app.rag.vector_store import collection
 from app.utils.docx_reader import extract_docx_text
 from app.utils.pdf_reader import extract_pdf_text
 
 
+# ==========================================================
+# Load Document
+# ==========================================================
+
 def load_document(file_path: str):
+    """
+    Read PDF/DOCX document and split it into chunks.
+    """
+
     extension = Path(file_path).suffix.lower()
 
     if extension == ".pdf":
@@ -30,20 +38,41 @@ def load_document(file_path: str):
     return chunks
 
 
+# ==========================================================
+# Store Document
+# ==========================================================
+
 def store_document(
     file_path: str,
     document_id: int,
     filename: str,
     uploaded_by: int,
 ):
+    """
+    Load document, generate embeddings and store
+    chunks in ChromaDB.
+    """
+
     chunks = load_document(file_path)
 
-    embeddings = embedding_model.encode(chunks).tolist()
+    # ------------------------------------------------------
+    # Generate embeddings lazily
+    # ------------------------------------------------------
+
+    embeddings = get_embeddings(chunks)
+
+    # ------------------------------------------------------
+    # Generate unique IDs
+    # ------------------------------------------------------
 
     ids = [
         f"{document_id}_{i}"
         for i in range(len(chunks))
     ]
+
+    # ------------------------------------------------------
+    # Metadata
+    # ------------------------------------------------------
 
     metadatas = [
         {
@@ -54,6 +83,10 @@ def store_document(
         }
         for i in range(len(chunks))
     ]
+
+    # ------------------------------------------------------
+    # Store in ChromaDB
+    # ------------------------------------------------------
 
     collection.add(
         ids=ids,
