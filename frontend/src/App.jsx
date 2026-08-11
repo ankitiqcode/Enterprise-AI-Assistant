@@ -54,10 +54,10 @@ import DepartmentDetails from "./pages/departments/DepartmentDetails";
 // Attendance
 // ==========================================================
 
-import AttendanceList from "./pages/Attendance/AttendanceList";
-import AddAttendance from "./pages/Attendance/AddAttendance";
-import EditAttendance from "./pages/Attendance/EditAttendance";
-import AttendanceDetails from "./pages/Attendance/AttendanceDetails";
+import AttendanceList from "./pages/attendance/AttendanceList";
+import AddAttendance from "./pages/attendance/AddAttendance";
+import EditAttendance from "./pages/attendance/EditAttendance";
+import AttendanceDetails from "./pages/attendance/AttendanceDetails";
 
 // ==========================================================
 // Leave
@@ -81,7 +81,7 @@ import DocumentDetails from "./pages/documents/DocumentDetails";
 // Profile & Settings
 // ==========================================================
 
-import Profile from "./pages/Profile/Profile";
+import Profile from "./pages/profile/Profile";
 import Settings from "./pages/Settings/Settings";
 
 // ==========================================================
