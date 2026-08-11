@@ -11,7 +11,7 @@
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:8000";
+  "https://enterprise-ai-assistant-api-0uy0.onrender.com";
 
 // =====================================================
 // API Endpoints

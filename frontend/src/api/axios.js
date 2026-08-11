@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: "https://enterprise-ai-assistant-api-0uy0.onrender.com",
   headers: {
     "Content-Type": "application/json",
   },
