@@ -50,6 +50,7 @@ The application combines **FastAPI, React, PostgreSQL, JWT authentication, docum
 
 ### 📄 Document Management
 
+
 - Upload documents
 - View uploaded documents
 - Document details
