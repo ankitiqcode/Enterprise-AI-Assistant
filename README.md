@@ -4,6 +4,9 @@ An enterprise-grade AI-powered management platform designed to help organization
 
 The application combines **FastAPI, React, PostgreSQL, JWT authentication, document management, RAG, and Generative AI** to provide a secure and intelligent enterprise assistant.
 
+
+
+
 ---
 
 ## 🚀 Features
