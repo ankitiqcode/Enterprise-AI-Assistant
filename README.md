@@ -6,6 +6,7 @@ The application combines **FastAPI, React, PostgreSQL, JWT authentication, docum
 
 ---
 
+
 ## 🚀 Features
 
 ### 🔐 Authentication & Authorization
